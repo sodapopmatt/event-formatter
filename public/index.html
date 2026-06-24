@@ -1,0 +1,348 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>News N' Roses — Event Formatter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --rose: #c0395a;
+      --rose-light: #f9eaee;
+      --rose-mid: #e8a0b0;
+      --text: #1a1a1a;
+      --muted: #666;
+      --border: #e0d0d5;
+      --bg: #fdf8f9;
+      --white: #ffffff;
+      --radius: 10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--white);
+      border-bottom: 2px solid var(--rose-mid);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(192,57,90,0.08);
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--rose);
+    }
+
+    /* ── Tabs ── */
+    .tab-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      padding: 0 2rem;
+      gap: 0;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      padding: 0.85rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      margin-bottom: -1px;
+      border-radius: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: var(--rose); }
+    .tab-btn.active { color: var(--rose); border-bottom-color: var(--rose); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Controls (New Run tab) ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 1rem 2rem;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .date-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+    .date-row label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+    .date-row input[type="date"] {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.6rem;
+      font-size: 0.85rem;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--white);
+      outline: none;
+    }
+    .date-row input[type="date"]:focus { border-color: var(--rose-mid); }
+
+    .preset-btns { display: flex; gap: 0.4rem; }
+    .btn-preset {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.35rem 0.7rem;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-preset:hover { background: var(--rose-light); border-color: var(--rose-mid); }
+    .btn-preset.active { background: var(--rose-light); border-color: var(--rose); color: var(--rose); }
+
+    #status { font-size: 0.82rem; color: var(--muted); margin-left: auto; }
+
+    /* ── Progress bar ── */
+    #progress-wrap {
+      display: none;
+      padding: 0.75rem 2rem;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+    #progress-wrap.visible { display: block; }
+    #progress-status { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; display: flex; justify-content: space-between; }
+    #progress-bar-track { width: 100%; height: 6px; background: var(--rose-light); border-radius: 999px; overflow: hidden; }
+    #progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--rose-mid), var(--rose)); border-radius: 999px; transition: width 0.35s ease; }
+
+    /* ── Buttons ── */
+    button { cursor: pointer; border: none; border-radius: 6px; font-size: 0.875rem; font-weight: 600; padding: 0.5rem 1.1rem; transition: opacity 0.15s, transform 0.1s; }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--rose); color: #fff; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+    .btn-secondary { background: var(--rose-light); color: var(--rose); border: 1px solid var(--rose-mid); }
+    .btn-secondary:hover:not(:disabled) { background: #f0d5dc; }
+    .btn-danger { background: transparent; color: #b00020; border: 1px solid #f4b8c0; font-size: 0.78rem; padding: 0.3rem 0.7rem; }
+    .btn-danger:hover { background: #fff0f2; }
+
+    /* ── Main content ── */
+    main { max-width: 860px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+    section { margin-bottom: 2rem; }
+    section h2 { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--rose); margin-bottom: 0.75rem; }
+
+    /* ── Previous run header ── */
+    .prev-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 2rem;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+    .prev-meta { font-size: 0.82rem; color: var(--muted); margin-left: auto; }
+
+    /* ── Event cards ── */
+    .event-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 0.75rem; display: flex; align-items: flex-start; gap: 1rem; transition: box-shadow 0.15s; }
+    .event-card:hover { box-shadow: 0 2px 12px rgba(192,57,90,0.1); }
+    .event-text { flex: 1; font-size: 0.92rem; line-height: 1.55; }
+    .event-text a { color: var(--rose); }
+    .event-meta { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+    .badge { font-size: 0.68rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge-event { background: var(--rose-light); color: var(--rose); }
+    .badge-live-music { background: #f0e8ff; color: #6b21a8; }
+    .badge-civic-news { background: #e0f2fe; color: #0369a1; }
+    .event-actions { flex-shrink: 0; padding-top: 0.1rem; }
+
+    /* ── Empty state ── */
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+    .empty-state .emoji { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .empty-state p { margin-bottom: 1.25rem; font-size: 0.95rem; }
+
+    /* ── Facebook panel ── */
+    details { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    details summary { padding: 0.9rem 1.25rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text); user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    details summary::before { content: '▶'; font-size: 0.6rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    .fb-panel { padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--border); }
+    textarea { width: 100%; min-height: 120px; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; font-size: 0.875rem; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.15s; }
+    textarea:focus { border-color: var(--rose-mid); }
+    .fb-actions { display: flex; gap: 0.75rem; margin-top: 0.75rem; align-items: center; }
+    #fb-preview { margin-top: 1rem; display: none; }
+    #fb-preview h3 { font-size: 0.78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem; }
+    .fb-preview-card { background: var(--rose-light); border: 1px solid var(--rose-mid); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.88rem; margin-bottom: 0.5rem; }
+
+    /* ── Output ── */
+    .output-section { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+    .output-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+    .output-header h2 { margin-bottom: 0; }
+    .copy-confirm { font-size: 0.78rem; color: #2a7a2a; font-weight: 600; opacity: 0; transition: opacity 0.3s; }
+    .copy-confirm.show { opacity: 1; }
+    .output-preview { font-family: 'Menlo', 'Consolas', monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; max-height: 200px; overflow-y: auto; color: var(--muted); display: none; }
+
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-msg { color: #b00020; font-size: 0.82rem; margin-top: 0.5rem; }
+
+    /* ── Format mode toggle ── */
+    .mode-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .mode-toggle button { background: var(--white); border: none; border-radius: 0; padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 600; color: var(--muted); transition: background 0.15s, color 0.15s; }
+    .mode-toggle button.active { background: var(--rose); color: #fff; }
+    .mode-toggle button:not(.active):hover { background: var(--rose-light); color: var(--rose); }
+
+    /* ── Raw review panel ── */
+    #raw-review { display: none; padding: 1rem 2rem; background: var(--white); border-bottom: 1px solid var(--border); }
+    #raw-review.visible { display: block; }
+    .raw-review-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .raw-review-header h3 { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--rose); flex: 1; }
+    .raw-event-list { max-height: 340px; overflow-y: auto; margin-bottom: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); }
+    .raw-event-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+    .raw-event-row:last-child { border-bottom: none; }
+    .raw-event-row:hover { background: var(--rose-light); }
+    .raw-event-row input[type="checkbox"] { accent-color: var(--rose); width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+    .raw-event-info { flex: 1; min-width: 0; }
+    .raw-event-title { font-size: 0.88rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .raw-event-meta { font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .raw-review-actions { display: flex; gap: 0.6rem; align-items: center; }
+    #raw-select-all { font-size: 0.75rem; color: var(--rose); background: none; border: none; padding: 0; font-weight: 600; text-decoration: underline; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <span style="font-size:1.6rem">🌹</span>
+    <h1><span style="color:var(--text)">News N'</span> Roses <span>— Event Formatter</span></h1>
+  </header>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="new-run">New Run</button>
+    <button class="tab-btn" data-tab="previous-run">Previous Run</button>
+  </div>
+
+  <!-- ══ NEW RUN TAB ══ -->
+  <div class="tab-panel active" id="tab-new-run">
+    <div class="controls">
+      <div class="date-row">
+        <label>From</label>
+        <input type="date" id="date-start" />
+        <label>To</label>
+        <input type="date" id="date-end" />
+        <div class="preset-btns">
+          <button class="btn-preset" data-preset="mon-tue">Mon–Tue</button>
+          <button class="btn-preset" data-preset="wed-thu">Wed–Thu</button>
+          <button class="btn-preset" data-preset="fri-sun">Fri–Sun</button>
+        </div>
+      </div>
+      <div class="mode-toggle">
+        <button id="mode-all" class="active" title="Scrape and format everything automatically">Format all</button>
+        <button id="mode-pick" title="Scrape first, then choose which events to format">Let me pick</button>
+      </div>
+      <button class="btn-primary" id="scrape-btn">Scrape</button>
+      <span id="status">No events loaded</span>
+    </div>
+
+    <div id="raw-review">
+      <div class="raw-review-header">
+        <h3 id="raw-review-title">Review scraped events</h3>
+        <button id="raw-select-all">Select all</button>
+      </div>
+      <div class="raw-event-list" id="raw-event-list"></div>
+      <div class="raw-review-actions">
+        <button class="btn-primary" id="format-selected-btn" disabled>Format Selected (0)</button>
+        <button class="btn-secondary" id="format-all-raw-btn">Format All</button>
+        <span id="format-selected-status" class="error-msg" style="color:var(--muted)"></span>
+      </div>
+    </div>
+
+    <div id="progress-wrap">
+      <div id="progress-status">
+        <span id="progress-text">Starting...</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div id="progress-bar-track">
+        <div id="progress-bar-fill"></div>
+      </div>
+    </div>
+
+    <main>
+      <section>
+        <h2>Formatted Events</h2>
+        <div id="events-list"></div>
+      </section>
+
+      <section>
+        <details id="fb-details">
+          <summary>📋 Add Facebook Events</summary>
+          <div class="fb-panel">
+            <textarea id="fb-input" placeholder="Paste Facebook event text here — event name, date, time, location, any description you see..."></textarea>
+            <div class="fb-actions">
+              <button class="btn-secondary" id="fb-format-btn">Format & Preview</button>
+              <span id="fb-error" class="error-msg"></span>
+            </div>
+            <div id="fb-preview">
+              <h3>Preview</h3>
+              <div id="fb-preview-cards"></div>
+              <button class="btn-primary" id="fb-add-btn" style="margin-top:0.5rem">Add to List</button>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section>
+        <div class="output-section">
+          <div class="output-header">
+            <h2>Output</h2>
+            <button class="btn-primary" id="copy-btn">Copy for Beehiiv</button>
+            <span class="copy-confirm" id="copy-confirm">Copied!</span>
+          </div>
+          <div class="output-preview" id="output-preview"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ══ PREVIOUS RUN TAB ══ -->
+  <div class="tab-panel" id="tab-previous-run">
+    <div class="prev-header">
+      <button class="btn-primary" id="prev-copy-btn">Copy for Beehiiv</button>
+      <span class="copy-confirm" id="prev-copy-confirm">Copied!</span>
+      <span class="prev-meta" id="prev-meta">No previous run saved</span>
+    </div>
+
+    <main>
+      <section>
+        <h2>Previous Run Events</h2>
+        <div id="prev-events-list"></div>
+      </section>
+
+      <section>
+        <div class="output-section">
+          <div class="output-header">
+            <h2>Output</h2>
+          </div>
+          <div class="output-preview" id="prev-output-preview"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

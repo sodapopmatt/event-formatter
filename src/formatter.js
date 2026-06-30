@@ -47,26 +47,3 @@ Description: ${rawEvent.description || ''}`;
 
   return response.content[0].text.trim();
 }
-
-export async function formatFacebookEvent(pastedText) {
-  const userMessage = `The following is raw text pasted from one or more Facebook events. Extract each event and format each one using the template. Return one formatted line per event, separated by newlines.
-
-Pasted text:
-${pastedText}`;
-
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1000,
-    system: [
-      {
-        type: 'text',
-        text: SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' },
-      },
-    ],
-    messages: [{ role: 'user', content: userMessage }],
-  });
-
-  const text = response.content[0].text.trim();
-  return text.split('\n').filter(line => line.trim().length > 0);
-}

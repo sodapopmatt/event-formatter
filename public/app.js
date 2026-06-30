@@ -1,5 +1,4 @@
-﻿let pendingFbEvents = [];
-let formatMode = 'all'; // 'all' | 'pick'
+﻿const formatMode = 'pick';
 let rawEvents = []; // stored after scrape in pick mode
 
 // ── Date helpers ──────────────────────────────────────────────
@@ -45,18 +44,6 @@ document.querySelectorAll('.btn-preset').forEach(btn => btn.addEventListener('cl
 document.getElementById('date-start').addEventListener('change', () => document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active')));
 document.getElementById('date-end').addEventListener('change', () => document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active')));
 initDates();
-
-// ── Format mode toggle ────────────────────────────────────────
-document.getElementById('mode-all').addEventListener('click', () => {
-  formatMode = 'all';
-  document.getElementById('mode-all').classList.add('active');
-  document.getElementById('mode-pick').classList.remove('active');
-});
-document.getElementById('mode-pick').addEventListener('click', () => {
-  formatMode = 'pick';
-  document.getElementById('mode-pick').classList.add('active');
-  document.getElementById('mode-all').classList.remove('active');
-});
 
 // ── Tabs ──────────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -336,54 +323,6 @@ document.getElementById('events-list').addEventListener('click', async (e) => {
   } else {
     setStatus(`${remaining} event${remaining !== 1 ? 's' : ''} loaded`);
   }
-});
-
-// ── Facebook ──────────────────────────────────────────────────
-document.getElementById('fb-format-btn').addEventListener('click', async () => {
-  const text = document.getElementById('fb-input').value.trim();
-  const errEl = document.getElementById('fb-error');
-  errEl.textContent = '';
-  if (!text) { errEl.textContent = 'Paste some event text first.'; return; }
-
-  const btn = document.getElementById('fb-format-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" style="border-color:#c0395a;border-top-color:transparent"></span>Formatting...';
-
-  try {
-    const res = await fetch('/api/format-facebook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Format failed');
-    pendingFbEvents = data.events;
-    document.getElementById('fb-preview-cards').innerHTML = data.events.map(e =>
-      `<div class="fb-preview-card">${renderMarkdown(e.formatted)}</div>`).join('');
-    document.getElementById('fb-preview').style.display = 'block';
-  } catch (err) {
-    errEl.textContent = `Error: ${err.message}`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Format & Preview';
-  }
-});
-
-document.getElementById('fb-add-btn').addEventListener('click', async () => {
-  if (!pendingFbEvents.length) return;
-  await fetch('/api/events', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(pendingFbEvents),
-  });
-  document.getElementById('fb-input').value = '';
-  document.getElementById('fb-preview').style.display = 'none';
-  document.getElementById('fb-preview-cards').innerHTML = '';
-  pendingFbEvents = [];
-  document.getElementById('fb-details').open = false;
-  const res = await fetch('/api/events');
-  renderEvents(await res.json());
-  await refreshOutputPreview();
 });
 
 // ── Copy buttons ──────────────────────────────────────────────

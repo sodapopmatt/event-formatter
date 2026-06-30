@@ -176,18 +176,6 @@
     .empty-state .emoji { font-size: 2.5rem; margin-bottom: 0.75rem; }
     .empty-state p { margin-bottom: 1.25rem; font-size: 0.95rem; }
 
-    /* ── Facebook panel ── */
-    details { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    details summary { padding: 0.9rem 1.25rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text); user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
-    details summary::before { content: '▶'; font-size: 0.6rem; transition: transform 0.2s; }
-    details[open] summary::before { transform: rotate(90deg); }
-    .fb-panel { padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--border); }
-    textarea { width: 100%; min-height: 120px; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; font-size: 0.875rem; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.15s; }
-    textarea:focus { border-color: var(--rose-mid); }
-    .fb-actions { display: flex; gap: 0.75rem; margin-top: 0.75rem; align-items: center; }
-    #fb-preview { margin-top: 1rem; display: none; }
-    #fb-preview h3 { font-size: 0.78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem; }
-    .fb-preview-card { background: var(--rose-light); border: 1px solid var(--rose-mid); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.88rem; margin-bottom: 0.5rem; }
 
     /* ── Output ── */
     .output-section { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
@@ -201,11 +189,6 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-msg { color: #b00020; font-size: 0.82rem; margin-top: 0.5rem; }
 
-    /* ── Format mode toggle ── */
-    .mode-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-    .mode-toggle button { background: var(--white); border: none; border-radius: 0; padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 600; color: var(--muted); transition: background 0.15s, color 0.15s; }
-    .mode-toggle button.active { background: var(--rose); color: #fff; }
-    .mode-toggle button:not(.active):hover { background: var(--rose-light); color: var(--rose); }
 
     /* ── Raw review panel ── */
     #raw-review { display: none; padding: 1rem 2rem; background: var(--white); border-bottom: 1px solid var(--border); }
@@ -250,10 +233,6 @@
           <button class="btn-preset" data-preset="fri-sun">Fri–Sun</button>
         </div>
       </div>
-      <div class="mode-toggle">
-        <button id="mode-all" class="active" title="Scrape and format everything automatically">Format all</button>
-        <button id="mode-pick" title="Scrape first, then choose which events to format">Let me pick</button>
-      </div>
       <button class="btn-primary" id="scrape-btn">Scrape</button>
       <span id="status">No events loaded</span>
     </div>
@@ -285,24 +264,6 @@
       <section>
         <h2>Formatted Events</h2>
         <div id="events-list"></div>
-      </section>
-
-      <section>
-        <details id="fb-details">
-          <summary>📋 Add Facebook Events</summary>
-          <div class="fb-panel">
-            <textarea id="fb-input" placeholder="Paste Facebook event text here — event name, date, time, location, any description you see..."></textarea>
-            <div class="fb-actions">
-              <button class="btn-secondary" id="fb-format-btn">Format & Preview</button>
-              <span id="fb-error" class="error-msg"></span>
-            </div>
-            <div id="fb-preview">
-              <h3>Preview</h3>
-              <div id="fb-preview-cards"></div>
-              <button class="btn-primary" id="fb-add-btn" style="margin-top:0.5rem">Add to List</button>
-            </div>
-          </div>
-        </details>
       </section>
 
       <section>

@@ -229,19 +229,6 @@ app.post('/api/format-selected', async (req, res) => {
   }
 });
 
-// POST /api/format-facebook
-app.post('/api/format-facebook', async (req, res) => {
-  try {
-    const { text } = req.body;
-    if (!text?.trim()) return res.status(400).json({ error: 'No text provided' });
-    const { formatFacebookEvent } = await import('./formatter.js');
-    const lines = await formatFacebookEvent(text);
-    res.json({ events: lines.map(line => ({ id: generateId(), formatted: line, source: 'facebook', createdAt: new Date().toISOString() })) });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // POST /api/events
 app.post('/api/events', async (req, res) => {
   try {

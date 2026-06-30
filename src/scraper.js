@@ -23,11 +23,22 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function getWeekenderUrl(startDate, endDate) {
+function getWeekenderUrl(date) {
   const p = (n) => String(n).padStart(2, '0');
-  const from = `s_from_mm=${p(startDate.getMonth() + 1)}&s_from_dd=${p(startDate.getDate())}&s_from_yy=${startDate.getFullYear()}`;
-  const to = `s_to_mm=${p(endDate.getMonth() + 1)}&s_to_dd=${p(endDate.getDate())}&s_to_yy=${endDate.getFullYear()}`;
-  return `https://www.pasadenanow.com/weekendr/events/?${from}&${to}`;
+  return `https://www.pasadenanow.com/weekendr/events/?s_from_mm=${p(date.getMonth() + 1)}&s_from_dd=${p(date.getDate())}&s_from_yy=${date.getFullYear()}`;
+}
+
+function eachDay(startDate, endDate) {
+  const days = [];
+  const d = new Date(startDate);
+  d.setHours(12, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(12, 0, 0, 0);
+  while (d <= end) {
+    days.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
 }
 
 async function scrapeFullDescription(page, detailUrl) {
@@ -72,80 +83,80 @@ async function scrapeFullDescription(page, detailUrl) {
 
 export async function scrapeEvents(startDate = new Date(), endDate = null, onProgress = () => {}) {
   if (!endDate) endDate = startDate;
+  const days = eachDay(startDate, endDate);
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const listPage = await context.newPage();
-  const url = getWeekenderUrl(startDate, endDate);
-
-  console.log(`Scraping listing: ${url}`);
 
   try {
-    await listPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await listPage.waitForTimeout(2000);
+    // Pass 1: collect raw listings from each day's page
+    const seen = new Set();
+    const filtered = [];
 
-    // Pass 1: anchor on "click for more information" links — these only appear on real events
-    const rawEvents = await listPage.evaluate(() => {
-      const results = [];
+    for (let di = 0; di < days.length; di++) {
+      const day = days[di];
+      const url = getWeekenderUrl(day);
+      console.log(`Scraping listing: ${url}`);
+      onProgress('scraping', di, days.length, `Loading ${day.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}...`);
 
-      // Every real event listing has a "click for more information" link
-      const infoLinks = Array.from(document.querySelectorAll('a')).filter(a => {
-        const text = (a.innerText || '').trim().toLowerCase();
-        return text.includes('click for more') || text === 'more information';
+      await listPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await listPage.waitForTimeout(2000);
+
+      const dayEvents = await listPage.evaluate(() => {
+        const results = [];
+        const infoLinks = Array.from(document.querySelectorAll('a')).filter(a => {
+          const text = (a.innerText || '').trim().toLowerCase();
+          return text.includes('click for more') || text === 'more information';
+        });
+
+        for (const infoLink of infoLinks) {
+          const detailUrl = infoLink.href;
+
+          let container = infoLink.parentElement;
+          for (let i = 0; i < 8; i++) {
+            if (!container) break;
+            const text = container.innerText || '';
+            if (text.includes('Event Location') && text.includes('Time:')) break;
+            container = container.parentElement;
+          }
+          if (!container) continue;
+
+          const containerText = container.innerText || '';
+
+          const titleAnchor = Array.from(container.querySelectorAll('a')).find(a =>
+            a !== infoLink &&
+            (a.innerText || '').trim().length > 5 &&
+            !(a.innerText || '').toLowerCase().includes('click for more')
+          );
+          const title = titleAnchor ? (titleAnchor.innerText || '').trim() : '';
+          const sourceUrl = titleAnchor ? titleAnchor.href : detailUrl;
+
+          const dateMatch = containerText.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+\w+ \d+,\s+\d{4}/);
+          const rawDate = dateMatch ? dateMatch[0] : '';
+
+          const timeMatch = containerText.match(/Time:\s*([^\n]+)/);
+          const rawTime = timeMatch ? timeMatch[1].trim() : '';
+
+          const locationMatch = containerText.match(/Event Location:\s*([^\n]+)/);
+          const location = locationMatch ? locationMatch[1].trim() : '';
+
+          if (title) results.push({ title, sourceUrl, detailUrl, rawDate, rawTime, location });
+        }
+
+        return results;
       });
 
-      for (const infoLink of infoLinks) {
-        const detailUrl = infoLink.href;
-
-        // Walk up from the info link to find the event container
-        // (the block that also contains the title, date, time, location)
-        let container = infoLink.parentElement;
-        for (let i = 0; i < 8; i++) {
-          if (!container) break;
-          const text = container.innerText || '';
-          if (text.includes('Event Location') && text.includes('Time:')) break;
-          container = container.parentElement;
-        }
-        if (!container) continue;
-
-        const containerText = container.innerText || '';
-
-        // Title: the bold/linked text that is NOT the info link
-        const titleAnchor = Array.from(container.querySelectorAll('a')).find(a =>
-          a !== infoLink &&
-          (a.innerText || '').trim().length > 5 &&
-          !(a.innerText || '').toLowerCase().includes('click for more')
-        );
-        const title = titleAnchor ? (titleAnchor.innerText || '').trim() : '';
-        const sourceUrl = titleAnchor ? titleAnchor.href : detailUrl;
-
-        const dateMatch = containerText.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+\w+ \d+,\s+\d{4}/);
-        const rawDate = dateMatch ? dateMatch[0] : '';
-
-        const timeMatch = containerText.match(/Time:\s*([^\n]+)/);
-        const rawTime = timeMatch ? timeMatch[1].trim() : '';
-
-        const locationMatch = containerText.match(/Event Location:\s*([^\n]+)/);
-        const location = locationMatch ? locationMatch[1].trim() : '';
-
-        if (title) results.push({ title, sourceUrl, detailUrl, rawDate, rawTime, location });
+      for (const e of dayEvents) {
+        if (isNonEvent(e.title) || seen.has(e.title)) continue;
+        seen.add(e.title);
+        filtered.push(e);
       }
-
-      return results;
-    });
-
-    // Deduplicate and filter
-    const seen = new Set();
-    const filtered = rawEvents.filter(e => {
-      if (isNonEvent(e.title)) return false;
-      if (seen.has(e.title)) return false;
-      seen.add(e.title);
-      return true;
-    });
+    }
 
     console.log(`Found ${filtered.length} events — fetching full descriptions...`);
-    onProgress('scraping', 0, filtered.length, `Found ${filtered.length} events — loading details...`);
+    onProgress('scraping', days.length, days.length, `Found ${filtered.length} events — loading details...`);
 
-    // Pass 2: visit each detail page just for the full description
+    // Pass 2: visit each detail page for the full description
     const detailPage = await context.newPage();
     const events = [];
 

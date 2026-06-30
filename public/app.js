@@ -27,8 +27,10 @@ function setPreset(preset) {
   let start, end;
   if (preset === 'mon-tue') {
     start = getWeekDate(1, today); end = getWeekDate(2, today);
+    if (end <= start) end.setDate(end.getDate() + 7);
   } else if (preset === 'wed-thu') {
     start = getWeekDate(3, today); end = getWeekDate(4, today);
+    if (end <= start) end.setDate(end.getDate() + 7);
   } else if (preset === 'fri-sun') {
     start = getWeekDate(5, today);
     end = getWeekDate(0, today);

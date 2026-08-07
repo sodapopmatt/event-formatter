@@ -185,6 +185,14 @@
     .copy-confirm.show { opacity: 1; }
     .output-preview { font-family: 'Menlo', 'Consolas', monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; max-height: 200px; overflow-y: auto; color: var(--muted); display: none; }
 
+    /* ── Day groups ── */
+    .day-group { margin-bottom: 1rem; }
+    .day-group:last-child { margin-bottom: 0; }
+    .day-group-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+    .day-group-header h3 { font-size: 0.85rem; font-weight: 700; color: var(--text); flex: 1; }
+    .btn-copy-day { background: var(--rose-light); color: var(--rose); border: 1px solid var(--rose-mid); font-size: 0.75rem; padding: 0.3rem 0.7rem; }
+    .btn-copy-day:hover { background: #f0d5dc; }
+
     .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-msg { color: #b00020; font-size: 0.82rem; margin-top: 0.5rem; }
@@ -270,10 +278,10 @@
         <div class="output-section">
           <div class="output-header">
             <h2>Output</h2>
-            <button class="btn-primary" id="copy-btn">Copy for Beehiiv</button>
+            <button class="btn-primary" id="copy-btn">Copy All</button>
             <span class="copy-confirm" id="copy-confirm">Copied!</span>
           </div>
-          <div class="output-preview" id="output-preview"></div>
+          <div id="output-groups"></div>
         </div>
       </section>
     </main>
@@ -282,7 +290,7 @@
   <!-- ══ PREVIOUS RUN TAB ══ -->
   <div class="tab-panel" id="tab-previous-run">
     <div class="prev-header">
-      <button class="btn-primary" id="prev-copy-btn">Copy for Beehiiv</button>
+      <button class="btn-primary" id="prev-copy-btn">Copy All</button>
       <span class="copy-confirm" id="prev-copy-confirm">Copied!</span>
       <span class="prev-meta" id="prev-meta">No previous run saved</span>
     </div>
@@ -298,7 +306,7 @@
           <div class="output-header">
             <h2>Output</h2>
           </div>
-          <div class="output-preview" id="prev-output-preview"></div>
+          <div id="prev-output-groups"></div>
         </div>
       </section>
     </main>

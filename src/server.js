@@ -25,6 +25,33 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// Derives day-of-week label, short date label, and a sort key from a scraped
+// rawDate string like "Friday, June 28, 2026", so output can be grouped by day.
+function parseDayDate(rawDate) {
+  if (!rawDate) return { day: null, date: null, sortKey: null };
+  const parsed = new Date(rawDate);
+  if (Number.isNaN(parsed.getTime())) return { day: null, date: null, sortKey: null };
+  return {
+    day: parsed.toLocaleDateString('en-US', { weekday: 'long' }),
+    date: parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
+    sortKey: parsed.getTime(),
+  };
+}
+
+// Groups formatted events by date (falling back to an "Other" bucket),
+// ordered chronologically.
+function groupByDay(events) {
+  const groups = new Map();
+  for (const e of events) {
+    const key = e.date || 'other';
+    if (!groups.has(key)) {
+      groups.set(key, { day: e.day || null, date: e.date || null, sortKey: e.sortKey ?? Infinity, events: [] });
+    }
+    groups.get(key).events.push(e);
+  }
+  return [...groups.values()].sort((a, b) => (a.sortKey ?? Infinity) - (b.sortKey ?? Infinity));
+}
+
 async function readEvents() {
   try {
     const raw = await readFile(EVENTS_FILE, 'utf8');
@@ -131,9 +158,13 @@ app.post('/api/scrape', async (req, res) => {
         });
         try {
           const formattedText = await formatEvent(raw);
+          const { day, date, sortKey } = parseDayDate(raw.rawDate);
           formatted.push({
             id: generateId(),
             formatted: formattedText,
+            day,
+            date,
+            sortKey,
             source: 'web',
             createdAt: new Date().toISOString(),
           });
@@ -187,6 +218,34 @@ app.get('/api/output/previous', async (req, res) => {
   }
 });
 
+// GET /api/output/by-day — current run's output, grouped and split by day
+app.get('/api/output/by-day', async (req, res) => {
+  try {
+    const events = await readEvents();
+    res.json(groupByDay(events).map(g => ({
+      day: g.day || 'Other',
+      date: g.date,
+      text: g.events.map(e => e.formatted).join('\n\n'),
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/output/previous/by-day — previous run's output, grouped and split by day
+app.get('/api/output/previous/by-day', async (req, res) => {
+  try {
+    const { events } = await readPrevious();
+    res.json(groupByDay(events || []).map(g => ({
+      day: g.day || 'Other',
+      date: g.date,
+      text: g.events.map(e => e.formatted).join('\n\n'),
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE /api/events/:id
 app.delete('/api/events/:id', async (req, res) => {
   try {
@@ -212,9 +271,13 @@ app.post('/api/format-selected', async (req, res) => {
     for (const raw of toFormat) {
       try {
         const formattedText = await formatEvent(raw);
+        const { day, date, sortKey } = parseDayDate(raw.rawDate);
         formatted.push({
           id: generateId(),
           formatted: formattedText,
+          day,
+          date,
+          sortKey,
           source: 'web',
           createdAt: new Date().toISOString(),
         });

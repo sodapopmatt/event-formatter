@@ -75,6 +75,10 @@ function renderMarkdown(str) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // ── Status ────────────────────────────────────────────────────
 function setStatus(msg) {
   document.getElementById('status').textContent = msg;
@@ -106,13 +110,52 @@ function renderEvents(events) {
   setStatus(events?.length ? `${events.length} event${events.length !== 1 ? 's' : ''} loaded` : 'No events loaded');
 }
 
-// ── Output preview ────────────────────────────────────────────
+// ── Output preview (grouped by day) ────────────────────────────
+function renderOutputGroups(containerId, groups) {
+  const container = document.getElementById(containerId);
+  const nonEmpty = (groups || []).filter(g => g.text.trim());
+  if (nonEmpty.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = nonEmpty.map((g, i) => {
+    const label = g.date ? `${g.day}, ${g.date}` : g.day;
+    const groupId = `${containerId}-${i}`;
+    return `
+      <div class="day-group">
+        <div class="day-group-header">
+          <h3>${label}</h3>
+          <button class="btn-copy-day" data-text-id="${groupId}">Copy ${g.day === 'Other' ? 'this group' : g.day}</button>
+          <span class="copy-confirm" id="${groupId}-confirm">Copied!</span>
+        </div>
+        <div class="output-preview" id="${groupId}" style="display:block">${escapeHtml(g.text)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function copyGroupsContainerClick(e) {
+  const btn = e.target.closest('.btn-copy-day');
+  if (!btn) return;
+  const id = btn.dataset.textId;
+  const text = document.getElementById(id).textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    const confirmEl = document.getElementById(`${id}-confirm`);
+    confirmEl.classList.add('show');
+    setTimeout(() => confirmEl.classList.remove('show'), 2000);
+  } catch (err) {
+    alert('Copy failed: ' + err.message);
+  }
+}
+
+document.getElementById('output-groups').addEventListener('click', copyGroupsContainerClick);
+document.getElementById('prev-output-groups').addEventListener('click', copyGroupsContainerClick);
+
 async function refreshOutputPreview() {
-  const res = await fetch('/api/output');
-  const text = await res.text();
-  const el = document.getElementById('output-preview');
-  el.textContent = text;
-  el.style.display = text.trim() ? 'block' : 'none';
+  const res = await fetch('/api/output/by-day');
+  const groups = await res.json();
+  renderOutputGroups('output-groups', groups);
 }
 
 // ── Previous run ──────────────────────────────────────────────
@@ -131,13 +174,12 @@ async function loadPreviousRun() {
       meta.textContent = 'No previous run saved';
     }
 
-    const preview = document.getElementById('prev-output-preview');
-    const output = (events || []).map(e => e.formatted).join('\n\n');
-    preview.textContent = output;
-    preview.style.display = output.trim() ? 'block' : 'none';
+    const groupsRes = await fetch('/api/output/previous/by-day');
+    renderOutputGroups('prev-output-groups', await groupsRes.json());
   } catch {
     document.getElementById('prev-events-list').innerHTML = eventCardsHTML([], false);
     document.getElementById('prev-meta').textContent = 'No previous run saved';
+    document.getElementById('prev-output-groups').innerHTML = '';
   }
 }
 

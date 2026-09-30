@@ -23,6 +23,15 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+export function isPasadenaNowUrl(url) {
+  if (!url) return false;
+  try {
+    return /(^|\.)pasadenanow\.com$/i.test(new URL(url).hostname);
+  } catch {
+    return /pasadenanow/i.test(url);
+  }
+}
+
 function getWeekenderUrl(date) {
   const p = (n) => String(n).padStart(2, '0');
   return `https://www.pasadenanow.com/weekendr/events/?s_from_mm=${p(date.getMonth() + 1)}&s_from_dd=${p(date.getDate())}&s_from_yy=${date.getFullYear()}`;
@@ -62,8 +71,17 @@ async function scrapeFullDescription(page, detailUrl) {
           !addressPattern.test(t)
         );
 
-      // Find the "Or click here" external event link
+      // Find the "Or click here" external event link — never a Pasadena Now link
+      const isExternal = (a) => {
+        try {
+          const u = new URL(a.href);
+          return /^https?:$/.test(u.protocol) && !/(^|\.)pasadenanow\.com$/i.test(u.hostname);
+        } catch {
+          return false;
+        }
+      };
       const clickHereLink = Array.from(document.querySelectorAll('a')).find(a => {
+        if (!isExternal(a)) return false;
         const prev = (a.previousSibling?.textContent || a.parentElement?.innerText || '').toLowerCase();
         return prev.includes('click here') || (a.innerText || '').toLowerCase().includes('click here');
       });
@@ -168,7 +186,7 @@ export async function scrapeEvents(startDate = new Date(), endDate = null, onPro
       events.push({
         id: generateId(),
         title: e.title,
-        sourceUrl: externalUrl || e.detailUrl || e.sourceUrl,
+        sourceUrl: externalUrl || (isPasadenaNowUrl(e.sourceUrl) ? null : e.sourceUrl),
         rawDate: e.rawDate,
         rawTime: e.rawTime,
         location: e.location,

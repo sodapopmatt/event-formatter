@@ -26,18 +26,26 @@ Rules:
 - Tone: conversational, warm, not hype-y — written for locals who already know Pasadena
 - No em dashes in descriptions (never use —)
 - Emoji should match the vibe of the event
-- The event title must be a markdown hyperlink: [Title](url)
+- The event title must be a markdown hyperlink: [Title](url), unless the URL is "none"
 - Day is the full day of week (Saturday, Sunday, etc.)
 - Date is formatted like "June 28" — no year
 - Return ONLY the formatted line(s), no explanation, no extra text, no markdown code blocks
-- If no URL is available, use # as the href
+- If the URL is "none", write the title as plain text with no brackets or link
+- Never link to pasadenanow.com under any circumstances
 - If date or time is missing, omit just that field from the pipe-separated list
 - Keep descriptions to one sentence, under 20 words`;
+
+// Never link to Pasadena Now; with no real link, the title is plain text
+const DEAD_LINK = /\[([^\]]+)\]\((?:#|none|(?:https?:\/\/)?(?:[\w-]+\.)*pasadenanow\.com[^)]*)\)/gi;
+
+function safeUrl(url) {
+  return !url || /pasadenanow\.com/i.test(url) ? 'none' : url;
+}
 
 export async function formatEvent(rawEvent) {
   const userMessage = `Format this event:
 Title: ${rawEvent.title}
-URL: ${rawEvent.sourceUrl || '#'}
+URL: ${safeUrl(rawEvent.sourceUrl)}
 Date: ${rawEvent.rawDate || 'unknown'}
 Time: ${rawEvent.rawTime || 'unknown'}
 Location: ${rawEvent.location || 'Pasadena'}
@@ -56,5 +64,5 @@ Description: ${rawEvent.description || ''}`;
     messages: [{ role: 'user', content: userMessage }],
   });
 
-  return response.content[0].text.trim();
+  return response.content[0].text.trim().replace(DEAD_LINK, '$1');
 }

@@ -12,7 +12,8 @@ The description is the whole job. Its purpose is to tell a local reader what wil
 
 How to write the description:
 - Pull 1-2 concrete, specific facts from the source description: who's performing or hosting, what's on display, what activity happens, what's included, what makes this particular event different from a generic version of it. If the source names a band, artist, dish, theme, film, speaker, or activity, use that name.
-- If the source material is itself thin or generic, say only what you can verify from it — don't invent specifics, and don't paper over the gap with enthusiasm instead.
+- If the source material is thin, empty, or generic, write a short plain sentence from what the title and venue tell you (e.g. "A fall festival in the Japanese garden's historic Shoya House." or "A Halloween evening event at Descanso Gardens."). Don't invent specifics, and don't paper over the gap with enthusiasm.
+- This text is published directly to readers. Never mention the source, the description, missing or unavailable details, or what you were or weren't given. Never write notes, caveats, apologies, or anything addressed to the editor.
 - Write it as you'd describe the event to a friend deciding whether to go: plain, factual, specific. Not as an ad.
 - Never use these words/phrases or their close variants: join us, don't miss, come celebrate, experience the, indulge, elevate, immerse yourself, unforgettable, vibrant, must-see, get ready, gather for, in for a treat, whether you're a ... or a .... These are filler that could describe any event and read as AI-generated.
 - No exclamation points.
@@ -51,6 +52,44 @@ Time: ${rawEvent.rawTime || 'unknown'}
 Location: ${rawEvent.location || 'Pasadena'}
 Description: ${rawEvent.description || ''}`;
 
+  const hasMetaText = (l) => META_TEXT.test(splitLine(l, rawEvent.title).description);
+
+  let line = await requestLine([{ role: 'user', content: userMessage }]);
+
+  // Retry once if the model wrote commentary instead of a reader-facing description
+  if (hasMetaText(line)) {
+    console.warn(`[Formatter] Meta text in "${rawEvent.title}", retrying: ${line}`);
+    line = await requestLine([
+      { role: 'user', content: userMessage },
+      { role: 'assistant', content: line },
+      { role: 'user', content: 'That description talks about the source or missing details. This is published to readers. Rewrite the line with a plain sentence about the event based on its title and venue, and never mention the source or what information is or isn\'t available.' },
+    ]);
+  }
+
+  // Still bad: publish the line without a description rather than chat text
+  if (hasMetaText(line)) {
+    console.warn(`[Formatter] Meta text persisted in "${rawEvent.title}", dropping description: ${line}`);
+    const { head, details } = splitLine(line, rawEvent.title);
+    line = `${head} ${details}`;
+  }
+
+  return line;
+}
+
+// Phrases that only show up when the model talks about its input instead of the event
+const META_TEXT = new RegExp([
+  /\b(the|this) (provided |given |original )?(source|description|listing)\b/,
+  /\b(the|this) (provided|given) (text|information|info)\b/,
+  /\bbased on the (title|name|venue)\b/,
+  /\bdetails? (were|was|are|is)(n't| not) (available|provided|included|given|specified|listed)/,
+  /\b(no|limited|few|specific) (details|information|description)\b/,
+  /\b(not|isn't|aren't|wasn't|weren't) (specified|mentioned|provided|available|included|listed|clear)\b/,
+  /\b(unclear|unspecified|unavailable)\b/,
+  /\bI (don't|do not|can't|cannot|couldn't|could not|am unable)\b/,
+  /\b(unfortunately|apologi[sz]e|sorry)\b/,
+].map(r => r.source).join('|'), 'i');
+
+async function requestLine(messages) {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 300,
@@ -61,8 +100,28 @@ Description: ${rawEvent.description || ''}`;
         cache_control: { type: 'ephemeral' },
       },
     ],
-    messages: [{ role: 'user', content: userMessage }],
+    messages,
   });
-
   return response.content[0].text.trim().replace(DEAD_LINK, '$1');
+}
+
+// Split "emoji Title: description. **Location** | ..." into
+// { head: "emoji Title:", description: "description.", details: "**Location** | ..." }
+function splitLine(line, title) {
+  const boldStart = line.indexOf('**');
+  const bodyEnd = boldStart === -1 ? line.length : boldStart;
+  const titleAt = title ? line.indexOf(title) : -1;
+  const linkEnd = line.indexOf(')', titleAt);
+  // Start looking for the colon after the title (and its link, if any)
+  let from = titleAt === -1 ? 0 : titleAt + title.length;
+  if (line[from] === ']' && linkEnd !== -1) from = linkEnd;
+  const colon = line.indexOf(':', from);
+  if (colon === -1 || colon >= bodyEnd) {
+    return { head: line.slice(0, bodyEnd).trim(), description: '', details: line.slice(bodyEnd) };
+  }
+  return {
+    head: line.slice(0, colon + 1),
+    description: line.slice(colon + 1, bodyEnd).trim(),
+    details: line.slice(bodyEnd),
+  };
 }
